@@ -46,6 +46,21 @@ pub struct PtyManager {
     sessions: Arc<Mutex<HashMap<String, Session>>>,
 }
 
+impl PtyManager {
+    pub fn kill_all(&self) {
+        let mut map = self.sessions.lock();
+        for (_id, mut session) in map.drain() {
+            let _ = session.child.kill();
+        }
+    }
+}
+
+impl Drop for PtyManager {
+    fn drop(&mut self) {
+        self.kill_all();
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct SessionInfo {
     pub id: String,
@@ -195,6 +210,12 @@ pub fn pty_kill(state: State<'_, PtyManager>, id: String) -> Result<(), PtyError
     if let Some(mut session) = map.remove(&id) {
         let _ = session.child.kill();
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn pty_kill_all(state: State<'_, PtyManager>) -> Result<(), PtyError> {
+    state.kill_all();
     Ok(())
 }
 

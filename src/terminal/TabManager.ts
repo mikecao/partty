@@ -1,11 +1,14 @@
+import { open } from "@tauri-apps/plugin-dialog";
+import { loadTabs, type PersistedTab, saveTabs } from "../state";
 import { PartyTerminal, type SpawnOpts } from "./Terminal";
 
 interface Tab {
   id: number;
-  title: string;
+  cwd: string | null;
   terminal: PartyTerminal;
   pane: HTMLDivElement;
   tabEl: HTMLButtonElement;
+  label: HTMLSpanElement;
 }
 
 export class TabManager {
@@ -20,19 +23,36 @@ export class TabManager {
     this.root = root;
     this.tabBar = document.createElement("div");
     this.tabBar.className =
-      "flex items-stretch gap-px bg-zinc-900 border-b border-zinc-800 select-none";
+      "flex items-stretch gap-px bg-[#1f1f1f] border-b border-black/40 select-none";
 
     const newBtn = document.createElement("button");
-    newBtn.className = "px-3 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 text-sm";
+    newBtn.className = "px-3 text-zinc-400 hover:text-zinc-100 hover:bg-white/5 text-sm";
     newBtn.textContent = "+";
-    newBtn.title = "New tab";
-    newBtn.addEventListener("click", () => void this.newTab());
+    newBtn.title = "New tab — pick a folder";
+    newBtn.addEventListener("click", () => void this.promptAndOpen());
 
     this.body = document.createElement("div");
     this.body.className = "flex-1 relative";
 
     this.root.append(this.tabBar, this.body);
     this.tabBar.append(newBtn);
+  }
+
+  async restore(): Promise<void> {
+    const saved = await loadTabs();
+    if (saved.length === 0) {
+      await this.newTab({});
+      return;
+    }
+    for (const t of saved) {
+      await this.newTab({ cwd: t.cwd ?? undefined });
+    }
+  }
+
+  private async promptAndOpen(): Promise<void> {
+    const picked = await open({ directory: true, multiple: false, title: "Pick a folder" });
+    if (typeof picked !== "string") return;
+    await this.newTab({ cwd: picked });
   }
 
   async newTab(opts: SpawnOpts = {}): Promise<number> {
@@ -45,9 +65,11 @@ export class TabManager {
 
     const tabEl = document.createElement("button");
     tabEl.className =
-      "min-w-32 px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 border-r border-zinc-800 flex items-center justify-between gap-2";
+      "min-w-32 px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-white/5 border-r border-black/40 flex items-center justify-between gap-2";
     const label = document.createElement("span");
-    label.textContent = `tty ${id}`;
+    label.className = "truncate max-w-48";
+    label.textContent = labelFor(opts.cwd, id);
+    label.title = opts.cwd ?? "";
     const close = document.createElement("span");
     close.textContent = "×";
     close.className = "text-zinc-500 hover:text-red-400";
@@ -61,12 +83,20 @@ export class TabManager {
     // Insert before the "+" button (always last).
     this.tabBar.insertBefore(tabEl, this.tabBar.lastElementChild);
 
-    const tab: Tab = { id, title: `tty ${id}`, terminal, pane, tabEl };
+    const tab: Tab = {
+      id,
+      cwd: opts.cwd ?? null,
+      terminal,
+      pane,
+      tabEl,
+      label,
+    };
     this.tabs.push(tab);
     this.activate(id);
 
     await terminal.spawn(opts);
     terminal.focus();
+    void this.persist();
     return id;
   }
 
@@ -96,5 +126,17 @@ export class TabManager {
       if (next) this.activate(next.id);
       else this.activeId = null;
     }
+    void this.persist();
   }
+
+  private async persist(): Promise<void> {
+    const snapshot: PersistedTab[] = this.tabs.map((t) => ({ cwd: t.cwd }));
+    await saveTabs(snapshot);
+  }
+}
+
+function labelFor(cwd: string | null | undefined, id: number): string {
+  if (!cwd) return `tty ${id}`;
+  const seg = cwd.replace(/[\\/]+$/, "").split(/[\\/]/);
+  return seg[seg.length - 1] || cwd;
 }

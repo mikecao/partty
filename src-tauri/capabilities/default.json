@@ -8,13 +8,7 @@
     "core:event:default",
     "core:window:default",
     "core:webview:default",
-    {
-      "identifier": "sql:default",
-      "allow": [{ "name": "sqlite:partty.db" }]
-    },
-    "sql:allow-execute",
-    "sql:allow-select",
-    "sql:allow-load",
-    "sql:allow-close"
+    "store:default",
+    "dialog:allow-open"
   ]
 }
