@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Partty",
+  "version": "0.1.0",
+  "identifier": "is.umami.partty",
+  "build": {
+    "beforeDevCommand": "pnpm vite:dev",
+    "beforeBuildCommand": "pnpm vite:build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Partty",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 600,
+        "minHeight": 400,
+        "decorations": true,
+        "transparent": false,
+        "theme": "Dark"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

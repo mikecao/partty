@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.vite/
+.DS_Store
+*.log
+
+# Rust
+src-tauri/target/
+src-tauri/gen/
+
+# SQLite local dev artifacts
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

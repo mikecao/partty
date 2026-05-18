@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "@xterm/xterm/css/xterm.css";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+.xterm-viewport {
+  /* biome-ignore lint: override xterm.css default to inherit app bg */
+  background-color: transparent !important;
+}
