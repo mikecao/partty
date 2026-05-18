@@ -1,6 +1,15 @@
 # Partty
 
-A terminal emulator with multiple TTYs.
+A clean, fast terminal emulator built for keeping every project's shell within reach. Open a tab, point it at a folder, and your shell starts right there. Your tabs come back the next time you launch.
+
+## Features
+
+- **Multiple tabs, one window.** Each tab runs its own independent shell, ready to go from the moment you open it.
+- **Open new tabs in any folder.** Hit `+`, pick a directory, and the shell starts there — no `cd` required.
+- **Tabs remember themselves.** Close the app and your tab list plus their working directories come back exactly as you left them.
+- **Drag to reorder.** Rearrange tabs by dragging.
+- **Smooth rendering.** Hardware-accelerated output keeps long log streams and `htop`-style UIs fluid.
+- **Cross-platform.** Windows, macOS (Apple Silicon and Intel), and Linux.
 
 ## Stack
 
@@ -12,15 +21,6 @@ A terminal emulator with multiple TTYs.
 - **tauri-plugin-store** — tiny JSON-backed persistence for tab state
 - **tauri-plugin-dialog** — native folder picker for new tabs
 - **Biome** — lint + format
-
-## Features
-
-- Multiple concurrent terminal tabs, each backed by its own PTY
-- "+" opens a native folder picker; the chosen folder is the tab's cwd
-- On relaunch, the same tabs reopen with the same initial cwds
-- All PTY sessions are killed on tab close, app refresh, and app exit
-- Locked dark mode (window theme + pre-paint background, no flash)
-- Cross-platform: Windows, macOS, Linux
 
 ## Scripts
 
