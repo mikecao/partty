@@ -6,6 +6,9 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig({
   plugins: [tailwindcss()],
   clearScreen: false,
+  build: {
+    target: "es2022",
+  },
   server: {
     port: 1420,
     strictPort: true,
