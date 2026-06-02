@@ -27,6 +27,7 @@ interface DragState {
 export class TabManager {
   private root: HTMLElement;
   private tabBar: HTMLDivElement;
+  private tabList: HTMLDivElement;
   private body: HTMLDivElement;
   private tabs: Tab[] = [];
   private activeId: number | null = null;
@@ -37,10 +38,13 @@ export class TabManager {
   constructor(root: HTMLElement) {
     this.root = root;
     this.tabBar = document.createElement("div");
-    this.tabBar.className = "flex items-stretch bg-[#1f1f1f] border-b border-black/40 select-none";
+    this.tabBar.className = "flex min-w-0 items-stretch bg-[#1f1f1f] border-b border-black/40 select-none";
+
+    this.tabList = document.createElement("div");
+    this.tabList.className = "flex min-w-0 flex-1 overflow-x-auto";
 
     const newBtn = document.createElement("button");
-    newBtn.className = "px-3 text-zinc-400 hover:text-zinc-100 hover:bg-white/5 text-sm";
+    newBtn.className = "shrink-0 px-3 text-zinc-400 hover:text-zinc-100 hover:bg-white/5 text-sm";
     newBtn.textContent = "+";
     newBtn.title = "New tab — pick a folder";
     newBtn.addEventListener("click", () => void this.promptAndOpen());
@@ -49,7 +53,7 @@ export class TabManager {
     this.body.className = "flex-1 relative";
 
     this.root.append(this.tabBar, this.body);
-    this.tabBar.append(newBtn);
+    this.tabBar.append(this.tabList, newBtn);
   }
 
   async restore(): Promise<void> {
@@ -106,8 +110,7 @@ export class TabManager {
     });
     this.attachDrag(tabEl, id);
 
-    // Insert before the "+" button (always last).
-    this.tabBar.insertBefore(tabEl, this.tabBar.lastElementChild);
+    this.tabList.append(tabEl);
 
     const tab: Tab = {
       id,
@@ -135,6 +138,7 @@ export class TabManager {
       t.tabEl.classList.toggle("text-zinc-400", !active);
       t.tabEl.classList.toggle("text-white", active);
       if (active) {
+        t.tabEl.scrollIntoView({ block: "nearest", inline: "nearest" });
         t.terminal.fitNow();
         t.terminal.focus();
       }
@@ -283,10 +287,9 @@ export class TabManager {
     const [moved] = this.tabs.splice(fromIdx, 1);
     this.tabs.splice(toIdx, 0, moved);
 
-    // Reflow the DOM. The "+" button is always the last child.
-    const plus = this.tabBar.lastElementChild;
+    // Reflow the DOM to match the persisted tab order.
     for (const t of this.tabs) {
-      this.tabBar.insertBefore(t.tabEl, plus);
+      this.tabList.append(t.tabEl);
     }
 
     void this.persist();
