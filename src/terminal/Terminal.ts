@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -19,6 +20,7 @@ export class PartyTerminal {
   private unlistenData: UnlistenFn | null = null;
   private unlistenExit: UnlistenFn | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private abortController = new AbortController();
   sessionId: string | null = null;
 
   constructor(container: HTMLElement) {
@@ -59,6 +61,35 @@ export class PartyTerminal {
       // webgl not supported; canvas renderer is the fallback
     }
     this.xterm.open(this.container);
+    this.xterm.attachCustomKeyEventHandler((event) => {
+      if (event.type !== "keydown") {
+        return true;
+      }
+
+      const isPasteShortcut =
+        event.key.toLowerCase() === "v" && (event.ctrlKey || event.metaKey);
+      if (!isPasteShortcut) {
+        return true;
+      }
+
+      event.preventDefault();
+      void this.pasteFromClipboard();
+      return false;
+    });
+    this.container.addEventListener(
+      "paste",
+      (event) => {
+        const text = event.clipboardData?.getData("text/plain");
+        if (text === undefined) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        this.pasteText(text);
+      },
+      { signal: this.abortController.signal },
+    );
     this.fit.fit();
   }
 
@@ -103,7 +134,24 @@ export class PartyTerminal {
     this.fit.fit();
   }
 
+  private pasteText(text: string) {
+    if (text.length === 0) {
+      return;
+    }
+
+    this.xterm.paste(text);
+  }
+
+  private async pasteFromClipboard() {
+    try {
+      this.pasteText(await readText());
+    } catch {
+      // Clipboard reads may be unavailable; paste events still work.
+    }
+  }
+
   async dispose() {
+    this.abortController.abort();
     this.resizeObserver?.disconnect();
     this.unlistenData?.();
     this.unlistenExit?.();
