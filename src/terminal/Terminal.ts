@@ -1,6 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { readText } from "@tauri-apps/plugin-clipboard-manager";
+import {
+  readText,
+  writeText,
+} from "@tauri-apps/plugin-clipboard-manager";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -66,9 +69,16 @@ export class PartyTerminal {
         return true;
       }
 
-      const isPasteShortcut =
-        event.key.toLowerCase() === "v" && (event.ctrlKey || event.metaKey);
-      if (!isPasteShortcut) {
+      const hasShortcutModifier = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      if (hasShortcutModifier && key === "c" && this.xterm.hasSelection()) {
+        event.preventDefault();
+        void this.copySelection();
+        return false;
+      }
+
+      if (!hasShortcutModifier || key !== "v") {
         return true;
       }
 
@@ -147,6 +157,19 @@ export class PartyTerminal {
       this.pasteText(await readText());
     } catch {
       // Clipboard reads may be unavailable; paste events still work.
+    }
+  }
+
+  private async copySelection() {
+    const selection = this.xterm.getSelection();
+    if (selection.length === 0) {
+      return;
+    }
+
+    try {
+      await writeText(selection);
+    } catch {
+      // Clipboard writes may be unavailable; leave the selection intact.
     }
   }
 
