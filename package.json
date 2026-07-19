@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build",
+    "build": "tauri build --no-bundle",
+    "build:release": "tauri build",
     "tauri": "tauri",
     "vite:dev": "vite",
     "vite:build": "tsc && vite build",

@@ -72,9 +72,13 @@ export class PartyTerminal {
       const hasShortcutModifier = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
 
-      if (hasShortcutModifier && key === "c" && this.xterm.hasSelection()) {
+      if (hasShortcutModifier && key === "c") {
         event.preventDefault();
-        void this.copySelection();
+        if (this.xterm.hasSelection()) {
+          void this.copySelection();
+        } else {
+          this.writeToPty("\x03");
+        }
         return false;
       }
 
@@ -123,7 +127,7 @@ export class PartyTerminal {
     });
 
     this.xterm.onData((data) => {
-      void invoke("pty_write", { id, data });
+      this.writeToPty(data);
     });
 
     this.xterm.onResize(({ cols, rows }) => {
@@ -171,6 +175,14 @@ export class PartyTerminal {
     } catch {
       // Clipboard writes may be unavailable; leave the selection intact.
     }
+  }
+
+  private writeToPty(data: string) {
+    if (!this.sessionId) {
+      return;
+    }
+
+    void invoke("pty_write", { id: this.sessionId, data });
   }
 
   async dispose() {

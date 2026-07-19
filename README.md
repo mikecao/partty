@@ -27,7 +27,8 @@ A clean, fast terminal emulator built for keeping every project's shell within r
 ```bash
 pnpm install        # install JS deps
 pnpm dev            # run the app in dev mode (cargo + vite + tauri)
-pnpm build          # production build + bundle
+pnpm build          # build the local Tauri app (no installer)
+pnpm build:release  # build release bundles and installers
 pnpm vite:dev       # frontend only (no Tauri)
 pnpm vite:build     # frontend only
 pnpm lint           # Biome lint
