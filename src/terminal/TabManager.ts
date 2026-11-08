@@ -1,9 +1,11 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { loadTabs, type PersistedTab, saveTabs } from "../state";
+import { SettingsView } from "../settings/SettingsView";
+import { loadSessions } from "../state";
 import { PartyTerminal, type SpawnOpts } from "./Terminal";
 
 const TAB_WIDTH = 144;
 const TAB_DRAG_THRESHOLD = 4;
+const SETTINGS_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`;
 
 interface Tab {
   id: number;
@@ -34,17 +36,20 @@ export class TabManager {
   private nextId = 1;
   private drag: DragState | null = null;
   private suppressClickFor: number | null = null;
+  private settings: SettingsView;
 
   constructor(root: HTMLElement) {
     this.root = root;
     this.tabBar = document.createElement("div");
-    this.tabBar.className = "flex min-w-0 items-stretch bg-[#1f1f1f] border-b border-black/40 select-none";
+    this.tabBar.className =
+      "flex min-w-0 items-stretch bg-[#1f1f1f] border-b border-black/40 select-none";
 
     this.tabList = document.createElement("div");
     this.tabList.className = "flex min-w-0 flex-1 overflow-x-auto";
 
     const newBtn = document.createElement("button");
-    newBtn.className = "shrink-0 px-3 text-zinc-400 hover:text-zinc-100 hover:bg-white/5 text-sm";
+    newBtn.className =
+      "shrink-0 px-3 text-lg leading-none text-zinc-400 hover:text-zinc-100 hover:bg-white/5";
     newBtn.textContent = "+";
     newBtn.title = "New tab — pick a folder";
     newBtn.addEventListener("click", () => void this.promptAndOpen());
@@ -52,18 +57,37 @@ export class TabManager {
     this.body = document.createElement("div");
     this.body.className = "flex-1 relative";
 
+    const settingsBtn = document.createElement("button");
+    settingsBtn.className =
+      "shrink-0 flex items-center justify-center px-3 text-zinc-400 hover:bg-white/5 hover:text-zinc-100";
+    settingsBtn.title = "Settings";
+    settingsBtn.innerHTML = SETTINGS_ICON;
+    settingsBtn.setAttribute("aria-pressed", "false");
+    settingsBtn.addEventListener("click", () => void this.settings.toggle());
+
+    this.settings = new SettingsView(this.body, {
+      onOpen: () => {
+        settingsBtn.classList.add("bg-white/10", "text-zinc-100");
+        settingsBtn.setAttribute("aria-pressed", "true");
+      },
+      onClose: () => {
+        settingsBtn.classList.remove("bg-white/10", "text-zinc-100");
+        settingsBtn.setAttribute("aria-pressed", "false");
+      },
+    });
+
     this.root.append(this.tabBar, this.body);
-    this.tabBar.append(this.tabList, newBtn);
+    this.tabBar.append(this.tabList, newBtn, settingsBtn);
   }
 
   async restore(): Promise<void> {
-    const saved = await loadTabs();
-    if (saved.length === 0) {
+    const sessions = (await loadSessions()).filter((s) => s.enabled);
+    if (sessions.length === 0) {
       await this.newTab({});
       return;
     }
-    for (const t of saved) {
-      await this.newTab({ cwd: t.cwd ?? undefined });
+    for (const s of sessions) {
+      await this.newTab({ cwd: s.cwd ?? undefined });
     }
   }
 
@@ -91,7 +115,7 @@ export class TabManager {
     const close = document.createElement("span");
     close.dataset.tabClose = "true";
     close.textContent = "×";
-    close.className = "text-zinc-500 hover:text-zinc-100 px-1 -mx-1";
+    close.className = "text-lg leading-none text-zinc-500 hover:text-zinc-100 px-1 -mx-1";
     close.addEventListener("click", (e) => {
       e.stopPropagation();
       void this.closeTab(id);
@@ -123,13 +147,18 @@ export class TabManager {
     this.tabs.push(tab);
     this.activate(id);
 
-    await terminal.spawn(opts);
+    try {
+      await terminal.spawn(opts);
+    } catch (err) {
+      // A configured folder may no longer exist; keep the tab and show why.
+      terminal.xterm.write(`\r\n\x1b[31m[spawn failed] ${String(err)}\x1b[0m\r\n`);
+    }
     terminal.focus();
-    void this.persist();
     return id;
   }
 
   activate(id: number) {
+    this.settings.close();
     this.activeId = id;
     for (const t of this.tabs) {
       const active = t.id === id;
@@ -157,7 +186,6 @@ export class TabManager {
       if (next) this.activate(next.id);
       else this.activeId = null;
     }
-    void this.persist();
   }
 
   private attachDrag(tabEl: HTMLButtonElement, id: number): void {
@@ -287,17 +315,10 @@ export class TabManager {
     const [moved] = this.tabs.splice(fromIdx, 1);
     this.tabs.splice(toIdx, 0, moved);
 
-    // Reflow the DOM to match the persisted tab order.
+    // Reflow the DOM to match the current tab order.
     for (const t of this.tabs) {
       this.tabList.append(t.tabEl);
     }
-
-    void this.persist();
-  }
-
-  private async persist(): Promise<void> {
-    const snapshot: PersistedTab[] = this.tabs.map((t) => ({ cwd: t.cwd }));
-    await saveTabs(snapshot);
   }
 }
 

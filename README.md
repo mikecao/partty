@@ -1,12 +1,12 @@
 # Partty
 
-A clean, fast terminal emulator built for keeping every project's shell within reach. Open a tab, point it at a folder, and your shell starts right there. Your tabs come back the next time you launch.
+A clean, fast terminal emulator built for keeping every project's shell within reach. Open a tab, point it at a folder, and your shell starts right there. Pick your startup sessions in Settings and they open the moment Partty launches.
 
 ## Features
 
 - **Multiple tabs, one window.** Each tab runs its own independent shell, ready to go from the moment you open it.
 - **Open new tabs in any folder.** Hit `+`, pick a directory, and the shell starts there — no `cd` required.
-- **Tabs remember themselves.** Close the app and your tab list plus their working directories come back exactly as you left them.
+- **Configurable startup sessions.** Open Settings (gear next to `+`) to choose which sessions open on launch — add folders, reorder, disable, or remove them.
 - **Drag to reorder.** Rearrange tabs by dragging.
 - **Smooth rendering.** Hardware-accelerated output keeps long log streams and `htop`-style UIs fluid.
 - **Cross-platform.** Windows, macOS (Apple Silicon and Intel), and Linux.
@@ -43,9 +43,11 @@ First-time `pnpm dev` will compile the Rust backend — expect several minutes. 
 ```
 partty/
 ├── src/
-│   ├── main.ts                 # entry — kills orphan PTYs, restores tabs
-│   ├── state.ts                # load/save tab list via tauri-plugin-store
+│   ├── main.ts                 # entry — kills orphan PTYs, opens startup sessions
+│   ├── state.ts                # load/save startup session config via tauri-plugin-store
 │   ├── style.css               # Tailwind import + theme tweaks
+│   ├── settings/
+│   │   └── SettingsView.ts     # settings screen — manage startup sessions
 │   └── terminal/
 │       ├── Terminal.ts         # xterm wrapper, PTY event wiring
 │       └── TabManager.ts       # tab bar + session state + folder picker
@@ -86,18 +88,18 @@ Events emitted by the backend:
 
 ## Persistence
 
-Tab state is stored as JSON via `tauri-plugin-store` at `partty.json` in the app data dir. The only thing persisted is the list of tabs and each tab's initial cwd:
+Settings are stored as JSON via `tauri-plugin-store` at `partty.json` in the app data dir. The only thing persisted is the startup session config, edited from the Settings screen:
 
 ```json
 {
-  "tabs": [
-    { "cwd": "E:\\dev\\dream" },
-    { "cwd": "E:\\dev\\astrofox" }
+  "sessions": [
+    { "id": "…", "cwd": "E:\\dev\\dream", "enabled": true },
+    { "id": "…", "cwd": "E:\\dev\\astrofox", "enabled": false }
   ]
 }
 ```
 
-Each tab persists the cwd it was **created** with, not where the shell has wandered to.
+Disabled sessions stay configured but are skipped on launch. Tabs opened or closed during a session are not persisted — what opens on launch is exactly what's enabled in Settings.
 
 ## License
 

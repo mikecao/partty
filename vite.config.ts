@@ -10,10 +10,10 @@ export default defineConfig({
     target: "es2022",
   },
   server: {
-    port: 1420,
+    port: 24680,
     strictPort: true,
     host: host || false,
-    hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
+    hmr: host ? { protocol: "ws", host, port: 24681 } : undefined,
     watch: { ignored: ["**/src-tauri/**"] },
   },
 });
