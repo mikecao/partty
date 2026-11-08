@@ -1,6 +1,6 @@
 [package]
 name = "partty"
-version = "0.2.0"
+version = "0.3.0"
 description = "Terminal emulator with multiple TTYs"
 edition = "2021"
 rust-version = "1.77"
