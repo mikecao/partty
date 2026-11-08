@@ -3,6 +3,8 @@
     "target": "ES2022",
     "useDefineForClassFields": true,
     "module": "ESNext",
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",

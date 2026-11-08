@@ -21,6 +21,7 @@ export class PartyTerminal {
   private unlistenExit: UnlistenFn | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private abortController = new AbortController();
+  private disposed = false;
   sessionId: string | null = null;
 
   constructor(container: HTMLElement) {
@@ -55,12 +56,12 @@ export class PartyTerminal {
     });
     this.xterm.loadAddon(this.fit);
     this.xterm.loadAddon(new WebLinksAddon());
+    this.xterm.open(this.container);
     try {
       this.xterm.loadAddon(new WebglAddon());
     } catch {
-      // webgl not supported; canvas renderer is the fallback
+      // WebGL is unavailable; keep xterm's default renderer.
     }
-    this.xterm.open(this.container);
     this.xterm.attachCustomKeyEventHandler((event) => {
       if (event.type !== "keydown") {
         return true;
@@ -101,10 +102,11 @@ export class PartyTerminal {
       },
       { signal: this.abortController.signal },
     );
-    this.fit.fit();
+    this.fitNow();
   }
 
   async spawn(opts: SpawnOpts = {}): Promise<string> {
+    if (this.disposed) throw new Error("Terminal has been disposed");
     const { cols, rows } = this.xterm;
     const id = await invoke<string>("pty_spawn", {
       shell: opts.shell ?? null,
@@ -114,39 +116,77 @@ export class PartyTerminal {
       cols,
       rows,
     });
+    // A component can unmount while Tauri is still creating its PTY (including
+    // React Strict Mode's setup/cleanup cycle). Reap late sessions immediately.
+    if (this.disposed) {
+      await invoke("pty_kill", { id }).catch(() => {});
+      return id;
+    }
     this.sessionId = id;
 
-    this.unlistenData = await listen<string>(`pty://data/${id}`, (e) => {
-      this.xterm.write(e.payload);
-    });
-    this.unlistenExit = await listen<number | null>(`pty://exit/${id}`, () => {
-      this.xterm.write("\r\n\x1b[2m[process exited]\x1b[0m\r\n");
-    });
+    try {
+      const unlistenData = await listen<string>(`pty://data/${id}`, (e) => {
+        if (!this.disposed) this.xterm.write(e.payload);
+      });
+      if (this.disposed) {
+        unlistenData();
+        return id;
+      }
+      this.unlistenData = unlistenData;
 
-    this.xterm.onData((data) => {
-      this.writeToPty(data);
-    });
+      const unlistenExit = await listen<number | null>(`pty://exit/${id}`, () => {
+        if (this.disposed) return;
+        this.sessionId = null;
+        this.xterm.write("\r\n\x1b[2m[process exited]\x1b[0m\r\n");
+      });
+      if (this.disposed) {
+        unlistenExit();
+        return id;
+      }
+      this.unlistenExit = unlistenExit;
 
-    this.xterm.onResize(({ cols, rows }) => {
-      void invoke("pty_resize", { id, cols, rows });
-    });
+      this.xterm.onData((data) => {
+        this.writeToPty(data);
+      });
 
-    this.resizeObserver = new ResizeObserver(() => this.fit.fit());
-    this.resizeObserver.observe(this.container);
+      this.xterm.onResize(({ cols, rows }) => {
+        if (this.sessionId) {
+          void invoke("pty_resize", { id, cols, rows }).catch(() => {});
+        }
+      });
+
+      this.resizeObserver = new ResizeObserver(() => this.fitNow());
+      this.resizeObserver.observe(this.container);
+      this.fitNow();
+      // The pane may have resized while spawn/listen were pending.
+      await invoke("pty_resize", { id, cols: this.xterm.cols, rows: this.xterm.rows }).catch(
+        () => {},
+      );
+    } catch (error) {
+      this.unlistenData?.();
+      this.unlistenExit?.();
+      this.unlistenData = null;
+      this.unlistenExit = null;
+      this.sessionId = null;
+      await invoke("pty_kill", { id }).catch(() => {});
+      throw error;
+    }
 
     return id;
   }
 
   focus() {
-    this.xterm.focus();
+    if (!this.disposed) this.xterm.focus();
   }
 
   fitNow() {
-    this.fit.fit();
+    if (!this.disposed && this.container.clientWidth > 0 && this.container.clientHeight > 0) {
+      this.fit.fit();
+    }
   }
 
   private pasteText(text: string) {
-    if (text.length === 0) {
+    if (this.disposed || text.length === 0) {
       return;
     }
 
@@ -179,21 +219,27 @@ export class PartyTerminal {
       return;
     }
 
-    void invoke("pty_write", { id: this.sessionId, data });
+    void invoke("pty_write", { id: this.sessionId, data }).catch(() => {});
   }
 
   async dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     this.abortController.abort();
     this.resizeObserver?.disconnect();
     this.unlistenData?.();
     this.unlistenExit?.();
-    if (this.sessionId) {
+    this.unlistenData = null;
+    this.unlistenExit = null;
+    const id = this.sessionId;
+    this.sessionId = null;
+    this.xterm.dispose();
+    if (id) {
       try {
-        await invoke("pty_kill", { id: this.sessionId });
+        await invoke("pty_kill", { id });
       } catch {
         // already gone
       }
     }
-    this.xterm.dispose();
   }
 }

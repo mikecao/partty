@@ -1,3 +1,4 @@
+mod folders;
 mod pty;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -8,6 +9,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(pty::PtyManager::default())
         .invoke_handler(tauri::generate_handler![
+            folders::list_directories,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
