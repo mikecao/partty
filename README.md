@@ -1,6 +1,6 @@
 # Partty
 
-A clean, fast terminal emulator built for keeping every project's shell within reach. Open a tab, point it at a folder, and your shell starts right there. Pick your startup sessions in Settings and they open the moment Partty launches.
+Partty is a terminal emulator for Windows, macOS, and Linux. It runs separate shell sessions in tabs, each starting in a folder you choose. You can keep terminals for multiple projects in one window and configure startup sessions to avoid setting up the same terminals each time you launch the app.
 
 ## Features
 
