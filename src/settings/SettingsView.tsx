@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Terminal, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Modal } from "../components/Modal";
 import type { SessionEntry } from "../state";
@@ -7,13 +7,14 @@ import { FolderPicker } from "../terminal/FolderPicker";
 interface SettingsViewProps {
   sessions: SessionEntry[];
   onChange: (sessions: SessionEntry[]) => void;
+  onOpenSession: (cwd: string | null) => void;
   onClose: () => void;
 }
 
 const ICON_BUTTON =
   "shrink-0 rounded-md p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-500";
 
-export function SettingsView({ sessions, onChange, onClose }: SettingsViewProps) {
+export function SettingsView({ sessions, onChange, onOpenSession, onClose }: SettingsViewProps) {
   const [pickingFolder, setPickingFolder] = useState(false);
 
   function addSession(cwd: string) {
@@ -47,16 +48,17 @@ export function SettingsView({ sessions, onChange, onClose }: SettingsViewProps)
           </button>
         </div>
         <p className="mt-1 text-sm text-zinc-500">
-          These terminal sessions open automatically when Partty starts.
+          Open a saved session in a new tab. Use the toggles to open sessions automatically on
+          launch.
         </p>
         <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Startup sessions
+          Saved sessions
         </h3>
         <fieldset disabled={pickingFolder} className="min-w-0">
-          <legend className="sr-only">Startup sessions</legend>
+          <legend className="sr-only">Saved sessions</legend>
           {sessions.length === 0 ? (
             <p className="py-10 text-center text-sm text-zinc-500">
-              No startup sessions yet — add one to open it automatically on launch.
+              No saved sessions yet — add a folder to save a session.
             </p>
           ) : (
             sessions.map((session, index) => (
@@ -94,6 +96,15 @@ export function SettingsView({ sessions, onChange, onClose }: SettingsViewProps)
                     {session.cwd ?? "Default (home directory)"}
                   </div>
                 </div>
+                <button
+                  type="button"
+                  className={ICON_BUTTON}
+                  title="Open terminal"
+                  aria-label={`Open terminal for ${folderName(session.cwd)}`}
+                  onClick={() => onOpenSession(session.cwd)}
+                >
+                  <Terminal size={16} aria-hidden="true" />
+                </button>
                 <button
                   type="button"
                   className={ICON_BUTTON}
@@ -138,7 +149,7 @@ export function SettingsView({ sessions, onChange, onClose }: SettingsViewProps)
       </Modal>
       {pickingFolder && (
         <FolderPicker
-          title="Add startup session"
+          title="Add saved session"
           confirmLabel="Add session"
           onSelect={addSession}
           onCancel={() => setPickingFolder(false)}

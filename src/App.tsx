@@ -30,7 +30,7 @@ export function App({ startupSessions, startupError }: AppProps) {
   const [pickingFolder, setPickingFolder] = useState(false);
   const [error, setError] = useState(startupError);
 
-  function newTab(cwd: string) {
+  function newTab(cwd: string | null) {
     const tab = { id: nextId.current++, cwd };
     setWorkspace((current) => ({ ...current, tabs: [...current.tabs, tab], activeId: tab.id }));
     setSettingsOpen(false);
@@ -125,7 +125,12 @@ export function App({ startupSessions, startupError }: AppProps) {
         ))}
       </div>
       {settingsOpen && (
-        <SettingsView sessions={sessions} onChange={updateSessions} onClose={closeSettings} />
+        <SettingsView
+          sessions={sessions}
+          onChange={updateSessions}
+          onOpenSession={newTab}
+          onClose={closeSettings}
+        />
       )}
       {pickingFolder && <FolderPicker onSelect={newTab} onCancel={cancelPicker} />}
     </>
